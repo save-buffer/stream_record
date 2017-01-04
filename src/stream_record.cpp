@@ -3,7 +3,7 @@
 int main(void)
 {
     //TODO(sasha): Bulletproof this
-    char channel[64]
+    char channel[64];
     scanf("%s", channel);
     return(0);
 }
