@@ -1,9 +1,8 @@
 #include <stdio.h>
+#include "aes.cpp"
 
 int main(void)
 {
-    //TODO(sasha): Bulletproof this
-    char channel[64];
-    scanf("%s", channel);
+    test_decrypt_cbc();
     return(0);
 }

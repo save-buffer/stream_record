@@ -1,16 +1,18 @@
 #include <stdint.h>
-#include <string.h>
+#include <string.h> // CBC mode, for memset
 
-#define NUM_COL 4
-#define NUM_KEY 4
+#define Nb 4
+#define Nk 4
 #define KEYLEN 16
-#define NUM_ROUNDS 10
+#define Nr 10
 
-typedef uint8_t state[4][4];
+typedef uint8_t state_t[4][4];
+static state_t* state;
+static uint8_t RoundKey[176];
+static const uint8_t* Key;
 
-static state *State;
-static uint8_t *RoundKey[176];
-static const uint8_t *Key;
+static uint8_t* Iv;
+
 
 static const uint8_t sbox[256] =
 {
@@ -52,6 +54,7 @@ static const uint8_t rsbox[256] =
     0x17, 0x2b, 0x04, 0x7e, 0xba, 0x77, 0xd6, 0x26, 0xe1, 0x69, 0x14, 0x63, 0x55, 0x21, 0x0c, 0x7d
 };
 
+
 static const uint8_t Rcon[255] =
 {
     0x8d, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1b, 0x36, 0x6c, 0xd8, 0xab, 0x4d, 0x9a, 
@@ -72,124 +75,333 @@ static const uint8_t Rcon[255] =
     0x61, 0xc2, 0x9f, 0x25, 0x4a, 0x94, 0x33, 0x66, 0xcc, 0x83, 0x1d, 0x3a, 0x74, 0xe8, 0xcb
 };
 
-static void rotate_word(uint8_t *word)
+
+static uint8_t getSBoxValue(uint8_t num)
 {
-    uint8_t t = word[0];
-    word[0] = word[1];
-    word[1] = word[2];
-    word[2] = word[3];
-    word[3] = t;
+    return sbox[num];
 }
 
-static void apply_sbox(uint8_t *word)
+static uint8_t getSBoxInvert(uint8_t num)
 {
-    word[0] = sbox[word[0]];
-    word[1] = sbox[word[1]];
-    word[2] = sbox[word[2]];
-    word[3] = sbox[word[3]];
+    return rsbox[num];
 }
-static void key_expansion(void)
+
+static void RotWord(uint8_t *tempa)
 {
-    uint8_t temp[4];
-    for(int i = 0; i < NUM_KEY; i++)
+    uint8_t k = tempa[0];
+    tempa[0] = tempa[1];
+    tempa[1] = tempa[2];
+    tempa[2] = tempa[3];
+    tempa[3] = k;    
+}
+
+static void SubWord(uint8_t *tempa)
+{
+    tempa[0] = getSBoxValue(tempa[0]);
+    tempa[1] = getSBoxValue(tempa[1]);
+    tempa[2] = getSBoxValue(tempa[2]);
+    tempa[3] = getSBoxValue(tempa[3]);
+}
+
+static void KeyExpansion(void)
+{
+    uint32_t i, j, k;
+    uint8_t tempa[4];
+  
+    for(i = 0; i < Nk; i++)
     {
 	RoundKey[(i * 4) + 0] = Key[(i * 4) + 0];
 	RoundKey[(i * 4) + 1] = Key[(i * 4) + 1];
 	RoundKey[(i * 4) + 2] = Key[(i * 4) + 2];
 	RoundKey[(i * 4) + 3] = Key[(i * 4) + 3];
     }
-    for(; i < NUM_COL * (NUM_ROUNDS + 1); i++)
+  
+    for(; (i < (Nb * (Nr + 1))); i++)
     {
-	for(int j = 0; j < 4; j++)
+	for(j = 0; j < 4; j++)
 	{
-	    temp[j] = RoundKey[(i-1) * 4 + j];
+	    tempa[j]=RoundKey[(i-1) * 4 + j];
 	}
-	if(!(i % NUM_KEY))
+	if (i % Nk == 0)
 	{
-	    rotate_word(temp);
-	    apply_sbox(temp);
-	    temp[0] = temp[0] ^ Rcon[i / NUM_KEY];
+	    RotWord(tempa);
+	    SubWord(tempa);
+	    tempa[0] =  tempa[0] ^ Rcon[i/Nk];
 	}
-	else if(NUM_KEY > 6 && i % NUM_KEY == 4)
+	else if (Nk > 6 && i % Nk == 4)
 	{
-	    apply_sbox(temp);
+	    SubWord(tempa);
 	}
-	RoundKey[i * 4 = 0] = RoundKey[(i - NUM_KEY) * 4 + 0] ^ temp[0];
-	RoundKey[i * 4 = 1] = RoundKey[(i - NUM_KEY) * 4 + 1] ^ temp[1];
-	RoundKey[i * 4 = 2] = RoundKey[(i - NUM_KEY) * 4 + 2] ^ temp[2];
-	RoundKey[i * 4 = 3] = RoundKey[(i - NUM_KEY) * 4 + 3] ^ temp[3];
+	RoundKey[i * 4 + 0] = RoundKey[(i - Nk) * 4 + 0] ^ tempa[0];
+	RoundKey[i * 4 + 1] = RoundKey[(i - Nk) * 4 + 1] ^ tempa[1];
+	RoundKey[i * 4 + 2] = RoundKey[(i - Nk) * 4 + 2] ^ tempa[2];
+	RoundKey[i * 4 + 3] = RoundKey[(i - Nk) * 4 + 3] ^ tempa[3];
     }
 }
 
-static void add_round_key(uint8_t round)
+static void AddRoundKey(uint8_t round)
 {
-    for(int i = 0; i < 4; i++)
+    uint8_t i,j;
+    for(i = 0; i < 4; i++)
     {
-	for(int j = 0; j < 4; j++)
+	for(j = 0; j < 4; ++j)
 	{
-	    (*State)[i][j] ^= RoundKey[round * NUM_COL * 4 + i * NUM_COL + j];
-	}
-    }
-}
-
-static void sub_bytes(void)
-{
-    for(uint8_t i = 0; i < 4; i++)
-    {
-	for(uint8_t j = 0; j < 4; j++)
-	{
-	    (*State)[i][j] = sbox[(*State)[i][j]];				  
+	    (*state)[i][j] ^= RoundKey[round * Nb * 4 + i * Nb + j];
 	}
     }
 }
 
-static void shift_rows(void)
+static void SubBytes(void)
 {
-    uint8_t temp = (*State)[0][1];
-    (*State)[0][1] = (*State)[1][1];
-    (*State)[1][1] = (*State)[2][1];
-    (*State)[2][1] = (*State)[3][1];
-    (*State)[0][1] = temp;
-
-    temp = (*State)[0][2];
-    (*State)[0][2] = (*State)[2][2];
-    (*State)[2][2] = temp;
-
-    temp = (*State)[0][3];
-    (*State)[0][3] = (*State)[3][3];
-    (*State)[3][3] = (*State)[2][3];
-    (*State)[2][3] = (*State)[1][3];
-    (*State)[1][3] = temp;    
-}
-
-static uint8_t (uint8_t x)
-{
-    return ((x << 1) ^ (((x >> 7 ) & 1) * 0x1b));
-}
-
-static void mix_columns(void)
-{
-    uint8_t t1, t2, t3;
-    for(uint8_t i = 0; i < 4; i++)
+    uint8_t i, j;
+    for(i = 0; i < 4; i++)
     {
-	t3 = (*State)[i][0];
-	t1 = (*State)[i][0] ^ (*State)[i][1] ^ (*State)[i][2] ^ (*State)[i][3];
-	
-	t2 = (*State)[i][0] ^ (*State)[i][1];
-	t2 = rijndael_mult(t2);
-	(*State)[i][3] ^= t2 ^ t1;
-	
-	t2 = (*State)[i][1] ^ (*State)[i][1];
-	t2 = rijndael_mult(t2);
-	(*State)[i][0] ^= t2 ^ t1;
-	
-	t2 = (*State)[i][2] ^ (*State)[i][2];
-	t2 = rijndael_mult(t2);
-	(*State)[i][1] ^= t2 ^ t1;
-	
-	t2 = (*State)[i][3] ^ t3;
-	t2 = rijndael_mult(t2);
-	(*State)[i][2] ^= t2 ^ t1;
+	for(j = 0; j < 4; j++)
+	{
+	    (*state)[j][i] = getSBoxValue((*state)[j][i]);
+	}
     }
 }
 
+static void ShiftRows(void)
+{
+    uint8_t temp;
+
+    temp           = (*state)[0][1];
+    (*state)[0][1] = (*state)[1][1];
+    (*state)[1][1] = (*state)[2][1];
+    (*state)[2][1] = (*state)[3][1];
+    (*state)[3][1] = temp;
+
+    temp           = (*state)[0][2];
+    (*state)[0][2] = (*state)[2][2];
+    (*state)[2][2] = temp;
+
+    temp       = (*state)[1][2];
+    (*state)[1][2] = (*state)[3][2];
+    (*state)[3][2] = temp;
+
+    temp       = (*state)[0][3];
+    (*state)[0][3] = (*state)[3][3];
+    (*state)[3][3] = (*state)[2][3];
+    (*state)[2][3] = (*state)[1][3];
+    (*state)[1][3] = temp;
+}
+
+static uint8_t xtime(uint8_t x)
+{
+    return ((x<<1) ^ (((x>>7) & 1) * 0x1b));
+}
+
+static void MixColumns(void)
+{
+    uint8_t i;
+    uint8_t Tmp,Tm,t;
+    for(i = 0; i < 4; ++i)
+    {  
+	t   = (*state)[i][0];
+	Tmp = (*state)[i][0] ^ (*state)[i][1] ^ (*state)[i][2] ^ (*state)[i][3] ;
+	Tm  = (*state)[i][0] ^ (*state)[i][1] ; Tm = xtime(Tm);  (*state)[i][0] ^= Tm ^ Tmp ;
+	Tm  = (*state)[i][1] ^ (*state)[i][2] ; Tm = xtime(Tm);  (*state)[i][1] ^= Tm ^ Tmp ;
+	Tm  = (*state)[i][2] ^ (*state)[i][3] ; Tm = xtime(Tm);  (*state)[i][2] ^= Tm ^ Tmp ;
+	Tm  = (*state)[i][3] ^ t ;        Tm = xtime(Tm);  (*state)[i][3] ^= Tm ^ Tmp ;
+    }
+}
+
+static uint8_t Multiply(uint8_t x, uint8_t y)
+{
+    return (((y & 1) * x) ^
+	    ((y>>1 & 1) * xtime(x)) ^
+	    ((y>>2 & 1) * xtime(xtime(x))) ^
+	    ((y>>3 & 1) * xtime(xtime(xtime(x)))) ^
+	    ((y>>4 & 1) * xtime(xtime(xtime(xtime(x))))));
+}
+
+static void InvMixColumns(void)
+{
+    int i;
+    uint8_t a,b,c,d;
+    for(i = 0; i < 4; i++)
+    { 
+	a = (*state)[i][0];
+	b = (*state)[i][1];
+	c = (*state)[i][2];
+	d = (*state)[i][3];
+
+	(*state)[i][0] = Multiply(a, 0x0e) ^ Multiply(b, 0x0b) ^ Multiply(c, 0x0d) ^ Multiply(d, 0x09);
+	(*state)[i][1] = Multiply(a, 0x09) ^ Multiply(b, 0x0e) ^ Multiply(c, 0x0b) ^ Multiply(d, 0x0d);
+	(*state)[i][2] = Multiply(a, 0x0d) ^ Multiply(b, 0x09) ^ Multiply(c, 0x0e) ^ Multiply(d, 0x0b);
+	(*state)[i][3] = Multiply(a, 0x0b) ^ Multiply(b, 0x0d) ^ Multiply(c, 0x09) ^ Multiply(d, 0x0e);
+    }
+}
+
+static void InvSubBytes(void)
+{
+    uint8_t i, j;
+    for(i = 0; i < 4; i++)
+    {
+	for(j = 0; j < 4; j++)
+	{
+	    (*state)[j][i] = getSBoxInvert((*state)[j][i]);
+	}
+    }
+}
+
+static void InvShiftRows(void)
+{
+    uint8_t temp;
+
+    temp=(*state)[3][1];
+    (*state)[3][1]=(*state)[2][1];
+    (*state)[2][1]=(*state)[1][1];
+    (*state)[1][1]=(*state)[0][1];
+    (*state)[0][1]=temp;
+
+    temp=(*state)[0][2];
+    (*state)[0][2]=(*state)[2][2];
+    (*state)[2][2]=temp;
+
+    temp=(*state)[1][2];
+    (*state)[1][2]=(*state)[3][2];
+    (*state)[3][2]=temp;
+
+    temp=(*state)[0][3];
+    (*state)[0][3]=(*state)[1][3];
+    (*state)[1][3]=(*state)[2][3];
+    (*state)[2][3]=(*state)[3][3];
+    (*state)[3][3]=temp;
+}
+
+static void Cipher(void)
+{
+    uint8_t round = 0;
+
+    AddRoundKey(0); 
+  
+    for(round = 1; round < Nr; ++round)
+    {
+	SubBytes();
+	ShiftRows();
+	MixColumns();
+	AddRoundKey(round);
+    }
+  
+    SubBytes();
+    ShiftRows();
+    AddRoundKey(Nr);
+}
+
+static void InvCipher(void)
+{
+    uint8_t round=0;
+
+    AddRoundKey(Nr); 
+
+    for(round=Nr-1;round>0;round--)
+    {
+	InvShiftRows();
+	InvSubBytes();
+	AddRoundKey(round);
+	InvMixColumns();
+    }
+    
+    InvShiftRows();
+    InvSubBytes();
+    AddRoundKey(0);
+}
+
+static void BlockCopy(uint8_t* output, uint8_t* input)
+{
+    uint8_t i;
+    for (i=0;i<KEYLEN;++i)
+    {
+	output[i] = input[i];
+    }
+}
+
+static void XorWithIv(uint8_t* buf)
+{
+    uint8_t i;
+    for(i = 0; i < KEYLEN; i++)
+    {
+	buf[i] ^= Iv[i];
+    }
+}
+
+void aes_cbc_encrypt(uint8_t* output, uint8_t* input, uint32_t length, const uint8_t* key, const uint8_t* iv)
+{
+    uintptr_t i;
+    uint8_t remainders = length % KEYLEN;
+
+    BlockCopy(output, input);
+    state = (state_t*)output;
+
+    if(0 != key)
+    {
+	Key = key;
+	KeyExpansion();
+    }
+
+    if(iv != 0)
+    {
+	Iv = (uint8_t*)iv;
+    }
+
+    for(i = 0; i < length; i += KEYLEN)
+    {
+	XorWithIv(input);
+	BlockCopy(output, input);
+	state = (state_t*)output;
+	Cipher();
+	Iv = output;
+	input += KEYLEN;
+	output += KEYLEN;
+    }
+
+    if(remainders)
+    {
+	BlockCopy(output, input);
+	memset(output + remainders, 0, KEYLEN - remainders);
+	state = (state_t*)output;
+	Cipher();
+    }
+}
+
+void aes_cbc_decrypt(uint8_t* output, uint8_t* input, uint32_t length, const uint8_t* key, const uint8_t* iv)
+{
+    uintptr_t i;
+    uint8_t remainders = length % KEYLEN;
+  
+    BlockCopy(output, input);
+    state = (state_t*)output;
+
+    if(0 != key)
+    {
+	Key = key;
+	KeyExpansion();
+    }
+
+    if(iv != 0)
+    {
+	Iv = (uint8_t*)iv;
+    }
+
+    for(i = 0; i < length; i += KEYLEN)
+    {
+	BlockCopy(output, input);
+	state = (state_t*)output;
+	InvCipher();
+	XorWithIv(output);
+	Iv = input;
+	input += KEYLEN;
+	output += KEYLEN;
+    }
+
+    if(remainders)
+    {
+	BlockCopy(output, input);
+	memset(output+remainders, 0, KEYLEN - remainders);
+	state = (state_t*)output;
+	InvCipher();
+    }
+}
