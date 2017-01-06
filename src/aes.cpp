@@ -1,5 +1,6 @@
+#pragma once
 #include <stdint.h>
-#include <string.h> // CBC mode, for memset
+#include <string.h>
 
 #define Nb 4
 #define Nk 4
