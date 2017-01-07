@@ -1,5 +1,28 @@
+#include <iostream>
+#include <string>
+#include <regex>
 #include <stdio.h>
+#include <ws2tcpip.h>
+#include <winsock2.h>
+#include <stdint.h>
+#include <string.h>
+#include <malloc.h>
+
+typedef float real32;
+typedef float real64;
+
+typedef int8_t int8;
+typedef int16_t int16;
+typedef int32_t int32;
+typedef int64_t int64;
+
+typedef uint8_t uint8;
+typedef uint16_t uint16;
+typedef uint32_t uint32;
+typedef uint64_t uint64;
+
 #include "aes.cpp"
+#include "http.cpp"
 
 /*
 TODO(sasha): (In no particular order)
@@ -18,5 +41,6 @@ TODO(sasha): (In no particular order)
 
 int main(void)
 {
+    http_get("google.com");
     return(0);
 }

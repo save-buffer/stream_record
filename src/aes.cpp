@@ -1,21 +1,19 @@
 #pragma once
-#include <stdint.h>
-#include <string.h>
 
 #define Nb 4
 #define Nk 4
 #define KEYLEN 16
 #define Nr 10
 
-typedef uint8_t state_t[4][4];
-static state_t* state;
-static uint8_t RoundKey[176];
-static const uint8_t* Key;
+typedef uint8 state_t[4][4];
+static state_t *state;
+static uint8 RoundKey[176];
+static const uint8_t *Key;
 
-static uint8_t* Iv;
+static uint8 *Iv;
 
 
-static const uint8_t sbox[256] =
+static const uint8 sbox[256] =
 {
     0x63, 0x7c, 0x77, 0x7b, 0xf2, 0x6b, 0x6f, 0xc5, 0x30, 0x01, 0x67, 0x2b, 0xfe, 0xd7, 0xab, 0x76,
     0xca, 0x82, 0xc9, 0x7d, 0xfa, 0x59, 0x47, 0xf0, 0xad, 0xd4, 0xa2, 0xaf, 0x9c, 0xa4, 0x72, 0xc0,
@@ -35,7 +33,7 @@ static const uint8_t sbox[256] =
     0x8c, 0xa1, 0x89, 0x0d, 0xbf, 0xe6, 0x42, 0x68, 0x41, 0x99, 0x2d, 0x0f, 0xb0, 0x54, 0xbb, 0x16
 };
 
-static const uint8_t rsbox[256] =
+static const uint8 rsbox[256] =
 {
     0x52, 0x09, 0x6a, 0xd5, 0x30, 0x36, 0xa5, 0x38, 0xbf, 0x40, 0xa3, 0x9e, 0x81, 0xf3, 0xd7, 0xfb,
     0x7c, 0xe3, 0x39, 0x82, 0x9b, 0x2f, 0xff, 0x87, 0x34, 0x8e, 0x43, 0x44, 0xc4, 0xde, 0xe9, 0xcb,
@@ -56,7 +54,7 @@ static const uint8_t rsbox[256] =
 };
 
 
-static const uint8_t Rcon[255] =
+static const uint8 Rcon[255] =
 {
     0x8d, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1b, 0x36, 0x6c, 0xd8, 0xab, 0x4d, 0x9a, 
     0x2f, 0x5e, 0xbc, 0x63, 0xc6, 0x97, 0x35, 0x6a, 0xd4, 0xb3, 0x7d, 0xfa, 0xef, 0xc5, 0x91, 0x39, 
@@ -77,26 +75,26 @@ static const uint8_t Rcon[255] =
 };
 
 
-static uint8_t getSBoxValue(uint8_t num)
+static uint8 getSBoxValue(uint8 num)
 {
     return sbox[num];
 }
 
-static uint8_t getSBoxInvert(uint8_t num)
+static uint8 getSBoxInvert(uint8 num)
 {
     return rsbox[num];
 }
 
-static void RotWord(uint8_t *tempa)
+static void RotWord(uint8 *tempa)
 {
-    uint8_t k = tempa[0];
+    uint8 k = tempa[0];
     tempa[0] = tempa[1];
     tempa[1] = tempa[2];
     tempa[2] = tempa[3];
     tempa[3] = k;    
 }
 
-static void SubWord(uint8_t *tempa)
+static void SubWord(uint8 *tempa)
 {
     tempa[0] = getSBoxValue(tempa[0]);
     tempa[1] = getSBoxValue(tempa[1]);
@@ -107,7 +105,7 @@ static void SubWord(uint8_t *tempa)
 static void KeyExpansion(void)
 {
     uint32_t i, j, k;
-    uint8_t tempa[4];
+    uint8 tempa[4];
   
     for(i = 0; i < Nk; i++)
     {
@@ -140,9 +138,9 @@ static void KeyExpansion(void)
     }
 }
 
-static void AddRoundKey(uint8_t round)
+static void AddRoundKey(uint8 round)
 {
-    uint8_t i,j;
+    uint8 i,j;
     for(i = 0; i < 4; i++)
     {
 	for(j = 0; j < 4; ++j)
@@ -154,7 +152,7 @@ static void AddRoundKey(uint8_t round)
 
 static void SubBytes(void)
 {
-    uint8_t i, j;
+    uint8 i, j;
     for(i = 0; i < 4; i++)
     {
 	for(j = 0; j < 4; j++)
@@ -166,7 +164,7 @@ static void SubBytes(void)
 
 static void ShiftRows(void)
 {
-    uint8_t temp;
+    uint8 temp;
 
     temp           = (*state)[0][1];
     (*state)[0][1] = (*state)[1][1];
@@ -189,15 +187,15 @@ static void ShiftRows(void)
     (*state)[1][3] = temp;
 }
 
-static uint8_t xtime(uint8_t x)
+static uint8 xtime(uint8 x)
 {
     return ((x<<1) ^ (((x>>7) & 1) * 0x1b));
 }
 
 static void MixColumns(void)
 {
-    uint8_t i;
-    uint8_t Tmp,Tm,t;
+    uint8 i;
+    uint8 Tmp,Tm,t;
     for(i = 0; i < 4; ++i)
     {  
 	t   = (*state)[i][0];
@@ -209,7 +207,7 @@ static void MixColumns(void)
     }
 }
 
-static uint8_t Multiply(uint8_t x, uint8_t y)
+static uint8 Multiply(uint8 x, uint8 y)
 {
     return (((y & 1) * x) ^
 	    ((y>>1 & 1) * xtime(x)) ^
@@ -221,7 +219,7 @@ static uint8_t Multiply(uint8_t x, uint8_t y)
 static void InvMixColumns(void)
 {
     int i;
-    uint8_t a,b,c,d;
+    uint8 a,b,c,d;
     for(i = 0; i < 4; i++)
     { 
 	a = (*state)[i][0];
@@ -238,7 +236,7 @@ static void InvMixColumns(void)
 
 static void InvSubBytes(void)
 {
-    uint8_t i, j;
+    uint8 i, j;
     for(i = 0; i < 4; i++)
     {
 	for(j = 0; j < 4; j++)
@@ -250,7 +248,7 @@ static void InvSubBytes(void)
 
 static void InvShiftRows(void)
 {
-    uint8_t temp;
+    uint8 temp;
 
     temp=(*state)[3][1];
     (*state)[3][1]=(*state)[2][1];
@@ -275,7 +273,7 @@ static void InvShiftRows(void)
 
 static void Cipher(void)
 {
-    uint8_t round = 0;
+    uint8 round = 0;
 
     AddRoundKey(0); 
   
@@ -294,11 +292,11 @@ static void Cipher(void)
 
 static void InvCipher(void)
 {
-    uint8_t round=0;
+    uint8 round=0;
 
     AddRoundKey(Nr); 
 
-    for(round=Nr-1;round>0;round--)
+    for(round = Nr-1; round > 0; round--)
     {
 	InvShiftRows();
 	InvSubBytes();
@@ -311,31 +309,31 @@ static void InvCipher(void)
     AddRoundKey(0);
 }
 
-static void BlockCopy(uint8_t* output, uint8_t* input)
+static void BlockCopy(uint8 *output, uint8 *input)
 {
-    uint8_t i;
+    uint8 i;
     for (i=0;i<KEYLEN;++i)
     {
 	output[i] = input[i];
     }
 }
 
-static void XorWithIv(uint8_t* buf)
+static void XorWithIv(uint8 *buf)
 {
-    uint8_t i;
+    uint8 i;
     for(i = 0; i < KEYLEN; i++)
     {
 	buf[i] ^= Iv[i];
     }
 }
 
-void aes_cbc_encrypt(uint8_t* output, uint8_t* input, uint32_t length, const uint8_t* key, const uint8_t* iv)
+void aes_cbc_encrypt(uint8 *output, uint8 *input, uint32_t length, const uint8 *key, const uint8 *iv)
 {
     uintptr_t i;
-    uint8_t remainders = length % KEYLEN;
+    uint8 remainders = length % KEYLEN;
 
     BlockCopy(output, input);
-    state = (state_t*)output;
+    state = (state_t *)output;
 
     if(0 != key)
     {
@@ -345,14 +343,14 @@ void aes_cbc_encrypt(uint8_t* output, uint8_t* input, uint32_t length, const uin
 
     if(iv != 0)
     {
-	Iv = (uint8_t*)iv;
+	Iv = (uint8 *)iv;
     }
 
     for(i = 0; i < length; i += KEYLEN)
     {
 	XorWithIv(input);
 	BlockCopy(output, input);
-	state = (state_t*)output;
+	state = (state_t *)output;
 	Cipher();
 	Iv = output;
 	input += KEYLEN;
@@ -363,15 +361,15 @@ void aes_cbc_encrypt(uint8_t* output, uint8_t* input, uint32_t length, const uin
     {
 	BlockCopy(output, input);
 	memset(output + remainders, 0, KEYLEN - remainders);
-	state = (state_t*)output;
+	state = (state_t *)output;
 	Cipher();
     }
 }
 
-void aes_cbc_decrypt(uint8_t* output, uint8_t* input, uint32_t length, const uint8_t* key, const uint8_t* iv)
+void aes_cbc_decrypt(uint8 *output, uint8 *input, uint32_t length, const uint8 *key, const uint8 *iv)
 {
     uintptr_t i;
-    uint8_t remainders = length % KEYLEN;
+    uint8 remainders = length % KEYLEN;
   
     BlockCopy(output, input);
     state = (state_t*)output;
@@ -384,13 +382,13 @@ void aes_cbc_decrypt(uint8_t* output, uint8_t* input, uint32_t length, const uin
 
     if(iv != 0)
     {
-	Iv = (uint8_t*)iv;
+	Iv = (uint8 *)iv;
     }
 
     for(i = 0; i < length; i += KEYLEN)
     {
 	BlockCopy(output, input);
-	state = (state_t*)output;
+	state = (state_t *)output;
 	InvCipher();
 	XorWithIv(output);
 	Iv = input;
@@ -402,7 +400,7 @@ void aes_cbc_decrypt(uint8_t* output, uint8_t* input, uint32_t length, const uin
     {
 	BlockCopy(output, input);
 	memset(output+remainders, 0, KEYLEN - remainders);
-	state = (state_t*)output;
+	state = (state_t *)output;
 	InvCipher();
     }
 }
