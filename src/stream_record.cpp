@@ -26,9 +26,14 @@ typedef uint64_t uint64;
 
 /*
 TODO(sasha): (In no particular order)
- - Add PKCS7 Padding to AES128 implementation
+ - Finish Encryption
+     - Add PKCS7 Padding to AES128 implementation
+     - Implement SAMPLE-AES
  - Implement HTTP
- - Implement SAMPLE-AES
+     - Implement HTTPS
+     - Implement following redirects
+     - Parse HTTP Header to get size of payload
+     - Implement JSON Parsing
  - Implement parsing of HLS Playlist Files
  - Implement transforming Fragmented MP4 into MP4
  - Implement automatic polling of target Twitch channel 
@@ -36,11 +41,11 @@ TODO(sasha): (In no particular order)
  - (MAYBE?) Implement handling of WebVTT, MP2, and Packed Audio
  - Ask user for max video length
  - Handle gzip content encoding
- - Implement JSON Parsing
+
 */
 
 int main(void)
 {
-    http_get("google.com");
+    http_get("www.example.com");
     return(0);
 }
