@@ -1,6 +1,7 @@
 #include <iostream>
 #include <string>
 #include <regex>
+#include <unordered_map>
 #include <stdio.h>
 #include <ws2tcpip.h>
 #include <winsock2.h>
@@ -46,6 +47,12 @@ TODO(sasha): (In no particular order)
 
 int main(void)
 {
-    http_get("www.example.com");
+    FILE *ex_html;
+    http_response example = http_get("www.google.com");
+    ex_html = fopen("google.html", "w+");
+    for(int i = 0; i < example.response_length; i++)
+    {
+	fwrite((char *)example.response + i, 1, 1, ex_html);
+    }
     return(0);
 }
