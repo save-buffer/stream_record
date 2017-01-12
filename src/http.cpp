@@ -149,18 +149,7 @@ http_response http_get(char *url)
     } while (r > 0);
 
     closesocket(sock);
-    WSACleanup();
-/*
-    http_parser parser = {};
-     http_parser_settings settings = {};
-    http_parser_init(&parser, HTTP_RESPONSE);
-    http_parser_execute(&parser, &settings, response.c_str(), response.size());
 
-
-    std::cout << "status code: " << parser.status_code << std::endl;
-    std::cout << "content_length " << parser.content_length << std::endl;
-    std::cout << "actual content_length" << response.size() << std::endl;
-*/
     printf("total bytes received: %d\n", bytes_received);
     res.response_length = bytes_received;
     res.response = malloc(bytes_received);
