@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <ws2tcpip.h>
 #include <winsock2.h>
+#include <wininet.h>
 #include <stdint.h>
 #include <string.h>
 #include <malloc.h>
@@ -48,11 +49,12 @@ TODO(sasha): (In no particular order)
 int main(void)
 {
     FILE *ex_html;
-    http_response example = http_get("www.google.com");
-    ex_html = fopen("google.html", "w+");
+    http_response example = https_get("api.twitch.tv/kraken/channels/eleaguetv");
+    ex_html = fopen("twitch.txt", "w+");
     for(int i = 0; i < example.response_length; i++)
     {
 	fwrite((char *)example.response + i, 1, 1, ex_html);
     }
+    getchar();
     return(0);
 }

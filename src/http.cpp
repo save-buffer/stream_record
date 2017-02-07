@@ -1,11 +1,10 @@
 #pragma once
 
-#define DEFAULT_PORT "80"
-
 typedef std::unordered_map<std::string, std::string> http_header;
 
 struct http_response
 {
+    http_header header;
     uint64 response_length;
     void *response;
 };
@@ -61,6 +60,47 @@ get_request create_get_request(char *url)
     return(result);
 }
 
+http_response https_get(char *url)
+{
+    http_response res;
+    get_request my_request = create_get_request(url);
+    HINTERNET open = InternetOpen("streamrecord", INTERNET_OPEN_TYPE_DIRECT, 0, 0, 0);
+    HINTERNET connect = InternetConnect(open, my_request.host.c_str(), INTERNET_DEFAULT_HTTPS_PORT, "", "",
+					INTERNET_SERVICE_HTTP, 0, 0);
+    HINTERNET request = HttpOpenRequest(connect, "GET", my_request.path.c_str(), "HTTP/1.1", 0, 0, INTERNET_FLAG_SECURE, 0);
+    HttpSendRequest(request, "Client-ID: t5rswxchxpav3qqrhlnjdso9321r2g", 41, 0, 0);
+
+    char buffer[256];
+    char headers[2048];
+    DWORD header_length = 2048;
+    HttpQueryInfo(request, HTTP_QUERY_RAW_HEADERS_CRLF, headers, &header_length, 0);
+    std::string header_string(headers);
+    res.header = parse_header(header_string);
+    
+    std::string response;
+    int32 bytes_received = 0;
+    DWORD r = 0;
+    BOOL done;
+    do
+    {
+	done = InternetReadFile(request, buffer, 256, &r);
+	if(r > 0)
+	    printf("received %d bytes\n", r);
+	else if(r == 0)
+	    printf("connection closed\n");
+	else
+	    printf("recv failed\n");
+	bytes_received += r;
+	response.append(buffer, r);
+    } while (r != 0);
+    for(auto i : res.header)
+	std::cout << i.first << '|' << i.second << std::endl;
+    res.response_length = bytes_received;
+    res.response = malloc(res.response_length);
+    memcpy(res.response, response.c_str(), res.response_length);
+    return(res);
+}
+
 http_response http_get(char *url)
 {
     http_response res = {};
@@ -86,7 +126,7 @@ http_response http_get(char *url)
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_protocol = IPPROTO_TCP;
     
-    r = getaddrinfo(request.host.c_str(), DEFAULT_PORT, &hints, &result);
+    r = getaddrinfo(request.host.c_str(), "80", &hints, &result);
     if(r != 0)
     {
 	printf("getaddrinfo() failed with error %d\n", r);
@@ -145,18 +185,24 @@ http_response http_get(char *url)
 	else
 	    printf("recv failed\n");
 	bytes_received += r;
-	response.append(buffer, r);;
+	response.append(buffer, r);
     } while (r > 0);
 
     closesocket(sock);
-
+ 
     printf("total bytes received: %d\n", bytes_received);
-    res.response_length = bytes_received;
-    res.response = malloc(bytes_received);
-    memcpy(res.response, response.c_str(), bytes_received + 1);
 
-    parse_header(response);
+    uint32 header_length = response.find("\r\n\r\n") + 4;
+    res.header = parse_header(response);
+    if(res.header["Content-Length"] == "")
+    {
+	res.response_length = response.find("\r\n\r\n", header_length) - header_length;
+    }
+    else
+    {
+	res.response_length = std::stoi(res.header["Content-Length"]);
+    }
+    res.response = malloc(res.response_length);
+    memcpy(res.response, response.c_str() + header_length, res.response_length);
     return(res);
 }
-
-#undef DEFAULT_PORT
