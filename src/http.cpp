@@ -9,9 +9,8 @@ struct http_response
     void *response;
 };
 
-struct get_request
+struct host_path_bundle
 {
-    std::string request;
     std::string host;
     std::string path;
 };
@@ -37,38 +36,56 @@ http_header parse_header(std::string response)
     return(result);    
 }
 
-get_request create_get_request(char *url)
+std::string header_to_string(http_header header)
 {
-    get_request result = {};
+    std::string result("");
+    for(auto i : header)
+    {
+	result += i.first; 
+	result += ": ";
+	result += i.second;
+	result += "\n";
+    }
+    return(result);
+
+}
+
+host_path_bundle create_http_request(std::string url)
+{
+    host_path_bundle result = {};
     std::regex host_regex("((([A-Za-z])*\\.([A-Za-z])*))+");
     std::cmatch match;
     
-    std::regex_search(url, match, host_regex);
+    std::regex_search(url.c_str(), match, host_regex);
 
     result.host = match.str();
     result.path = match.suffix();
     if(result.path == "")
 	result.path = "/";
     
-    result.request = "GET ";
-    result.request += result.path;
-    result.request += " HTTP/1.1\r\nHost: ";
-    result.request += result.host;
-    result.request += "\r\n\r\n";
-    std::cout << result.request;
-    
     return(result);
 }
 
-http_response https_get(char *url)
+http_response http_request(DWORD port, DWORD request_flags, char *verb, http_header header, std::string url, std::string payload)
 {
+
+    void *void_payload = (void *)payload.c_str();
+    int payload_length = payload.length() + 1;
+    if(payload == "")
+    {
+	void_payload = 0;
+	payload_length = 0;
+    }
     http_response res;
-    get_request my_request = create_get_request(url);
+    
+    host_path_bundle my_request = create_http_request(url);
+    std::string header_as_string = header_to_string(header);
     HINTERNET open = InternetOpen("streamrecord", INTERNET_OPEN_TYPE_DIRECT, 0, 0, 0);
-    HINTERNET connect = InternetConnect(open, my_request.host.c_str(), INTERNET_DEFAULT_HTTPS_PORT, "", "",
+    HINTERNET connect = InternetConnect(open, my_request.host.c_str(), port, "", "",
 					INTERNET_SERVICE_HTTP, 0, 0);
-    HINTERNET request = HttpOpenRequest(connect, "GET", my_request.path.c_str(), "HTTP/1.1", 0, 0, INTERNET_FLAG_SECURE, 0);
-    HttpSendRequest(request, "Client-ID: t5rswxchxpav3qqrhlnjdso9321r2g", 41, 0, 0);
+    HINTERNET request = HttpOpenRequest(connect, verb, my_request.path.c_str(), "HTTP/1.1", 0, 0, request_flags, 0);
+    HttpSendRequest(request, header_as_string.c_str(), header_as_string.length(), void_payload, payload_length);
+
 
     char buffer[256];
     char headers[2048];
@@ -93,16 +110,22 @@ http_response https_get(char *url)
 	bytes_received += r;
 	response.append(buffer, r);
     } while (r != 0);
-    for(auto i : res.header)
-	std::cout << i.first << '|' << i.second << std::endl;
     res.response_length = bytes_received;
     res.response = malloc(res.response_length);
     memcpy(res.response, response.c_str(), res.response_length);
     return(res);
+
 }
 
-http_response http_get(char *url)
+http_response https_get(std::string url, http_header header = http_header(), std::string payload = "")
 {
+    return(http_request(INTERNET_DEFAULT_HTTPS_PORT, INTERNET_FLAG_SECURE, "GET", header, url, payload));
+}
+
+http_response http_get(std::string url, http_header header = http_header(), std::string payload = "")
+{
+    return(http_request(INTERNET_DEFAULT_HTTP_PORT, 0, "GET", header, url, payload));
+    /*
     http_response res = {};
         
     std::string response = "";
@@ -205,4 +228,5 @@ http_response http_get(char *url)
     res.response = malloc(res.response_length);
     memcpy(res.response, response.c_str() + header_length, res.response_length);
     return(res);
+    */
 }

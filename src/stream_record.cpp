@@ -32,9 +32,6 @@ TODO(sasha): (In no particular order)
      - Add PKCS7 Padding to AES128 implementation
      - Implement SAMPLE-AES
  - Implement HTTP
-     - Implement HTTPS
-     - Implement following redirects
-     - Parse HTTP Header to get size of payload
      - Implement JSON Parsing
  - Implement parsing of HLS Playlist Files
  - Implement transforming Fragmented MP4 into MP4
@@ -49,11 +46,14 @@ TODO(sasha): (In no particular order)
 int main(void)
 {
     FILE *ex_html;
-    http_response example = https_get("api.twitch.tv/kraken/channels/eleaguetv");
-    ex_html = fopen("twitch.txt", "w+");
-    for(int i = 0; i < example.response_length; i++)
+    http_header header;
+    header.emplace("Client-ID", "t5rswxchxpav3qqrhlnjdso9321r2g");
+    http_response example = https_get("api.twitch.tv/kraken/channels/mew2king", header);
+    http_response google = https_get("google.com");
+    ex_html = fopen("google.html", "w+");
+    for(int i = 0; i < google.response_length; i++)
     {
-	fwrite((char *)example.response + i, 1, 1, ex_html);
+	fwrite((char *)google.response + i, 1, 1, ex_html);
     }
     getchar();
     return(0);
