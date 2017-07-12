@@ -1,6 +1,7 @@
 #pragma once
 
 typedef std::unordered_map<std::string, std::string> http_header;
+typedef std::unordered_map<std::string, std::string> http_params;
 
 struct http_response
 {
@@ -36,15 +37,29 @@ http_header parse_header(std::string response)
     return(result);    
 }
 
+std::string params_to_string(http_params params)
+{
+    std::string result;
+    for(auto i : params)
+    {
+	result += "&";
+	result += i.first;
+	result += "=";
+	result += i.second;
+    }
+    result[0] = '?';
+    return(result);
+}
+
 std::string header_to_string(http_header header)
 {
-    std::string result("");
+    std::string result;
     for(auto i : header)
     {
 	result += i.first; 
 	result += ": ";
 	result += i.second;
-	result += "\n";
+	result += "\r\n";
     }
     return(result);
 
@@ -117,13 +132,15 @@ http_response http_request(DWORD port, DWORD request_flags, char *verb, http_hea
 
 }
 
-http_response https_get(std::string url, http_header header = http_header(), std::string payload = "")
+http_response https_get(std::string url, http_params params = http_params(), http_header header = http_header(), std::string payload = "")
 {
+    url += params_to_string(params);
     return(http_request(INTERNET_DEFAULT_HTTPS_PORT, INTERNET_FLAG_SECURE, "GET", header, url, payload));
 }
 
-http_response http_get(std::string url, http_header header = http_header(), std::string payload = "")
+http_response http_get(std::string url, http_params params = http_params(), http_header header = http_header(), std::string payload = "")
 {
+    url += params_to_string(params);
     return(http_request(INTERNET_DEFAULT_HTTP_PORT, 0, "GET", header, url, payload));
     /*
     http_response res = {};
